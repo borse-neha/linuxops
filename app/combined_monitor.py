@@ -13,7 +13,9 @@ def collect_combined_report():
     system = collect_metrics()
     containers = collect_container_status()
 
-    if containers["stopped_count"] > 0:
+    if not containers.get("success", True) or containers.get("error"):
+        container_health = "CRITICAL"
+    elif containers["stopped_count"] > 0:
         container_health = "WARNING"
     else:
         container_health = "NORMAL"
@@ -39,6 +41,7 @@ def collect_combined_report():
             "running": containers["running_count"],
             "stopped": containers["stopped_count"],
             "health": container_health,
+            "error": containers.get("error"),
         },
         "containers": containers["containers"],
     }

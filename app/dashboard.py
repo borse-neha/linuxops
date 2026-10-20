@@ -94,7 +94,9 @@ try:
     # Container inventory
     st.markdown("## Container Inventory")
 
-    if containers:
+    if container_summary.get("error"):
+        st.error(f"Container inventory error: {container_summary['error']}")
+    elif containers:
         st.dataframe(
             pd.DataFrame(containers),
             width="stretch",
