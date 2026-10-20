@@ -1,0 +1,16 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Runtime monitoring data
+logs/*.jsonl
+
+# Local environment variables
+.env
+
+# Backups
+*.bak
