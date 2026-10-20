@@ -1,11 +1,30 @@
-import streamlit as st
+#!/usr/bin/env python3
+
+"""
+LinuxOps Operations Center Dashboard.
+
+Interactive Streamlit dashboard for:
+- System monitoring metrics
+- Podman container inventory and diagnostics
+- Safe dry-run recovery policy preview
+- Verified manual container recovery
+- Isolated audit logs for recovery executions and policy evaluations
+"""
+
 import pandas as pd
+import streamlit as st
 
 from app.combined_monitor import collect_combined_report
-from app.recovery import restart_container
 from app.diagnosis import diagnose_container
-from app.history import record_recovery_event, load_recovery_history
-
+from app.history import (
+    format_policy_history_rows,
+    format_recovery_history_rows,
+    load_policy_history,
+    load_recovery_history,
+    record_recovery_event,
+)
+from app.policy_service import evaluate_container_policy
+from app.recovery import restart_container
 
 st.set_page_config(
     page_title="LinuxOps Operations Center",
@@ -33,7 +52,7 @@ try:
     container_summary = report["container_summary"]
     containers = report["containers"]
 
-    # Overview
+    # 1. Operations Overview
     st.markdown("## Operations Overview")
 
     status = report["overall_status"]
@@ -52,7 +71,7 @@ try:
     running_col.metric("Running", container_summary["running"])
     stopped_col.metric("Stopped", container_summary["stopped"])
 
-    # System resource cards
+    # 2. System Resource Cards
     st.markdown("## System Resources")
 
     cpu_col, memory_col, disk_col = st.columns(3)
@@ -91,7 +110,7 @@ try:
         st.write(f"**Operating system:** {system['operating_system']}")
         st.write(f"**Kernel:** {system['kernel']}")
 
-    # Container inventory
+    # 3. Container Inventory
     st.markdown("## Container Inventory")
 
     if container_summary.get("error"):
@@ -105,7 +124,7 @@ try:
     else:
         st.info("No Podman containers were found.")
 
-    # Diagnosis center
+    # 4. Container Diagnosis Center
     st.markdown("## 🔎 Container Diagnosis Center")
 
     if containers:
@@ -175,7 +194,84 @@ try:
     else:
         st.info("Create or run a container to use diagnosis.")
 
-    # Recovery center
+    # 5. Recovery Policy Preview (Phase B Step 4 — Dry-Run Only)
+    st.markdown("## 🛡️ Recovery Policy Preview (Dry-Run)")
+    st.caption(
+        "Evaluate recovery safety policies (cooldowns, retry limits, and OOM protection) "
+        "before initiating recovery. Policy preview is strictly dry-run and will NOT restart any container."
+    )
+
+    if containers:
+        policy_container_names = [c["name"] for c in containers]
+        selected_policy_name = st.selectbox(
+            "Select a container to evaluate against policy",
+            policy_container_names,
+            key="policy_container",
+        )
+
+        selected_cont_info = next(
+            (c for c in containers if c["name"] == selected_policy_name),
+            None,
+        )
+        current_cont_state = (
+            selected_cont_info.get("state", "unknown")
+            if selected_cont_info
+            else "unknown"
+        )
+
+        st.write(f"**Current Container State:** `{current_cont_state.upper()}`")
+
+        if st.button("🛡️ Evaluate Recovery Policy", type="secondary", key="run_policy_eval"):
+            with st.spinner("Evaluating policy safeguards..."):
+                pol_decision = evaluate_container_policy(
+                    container_name=selected_policy_name,
+                    current_state=current_cont_state,
+                )
+                st.session_state["last_policy_result"] = pol_decision
+                st.session_state["last_policy_name"] = selected_policy_name
+
+        last_pol = st.session_state.get("last_policy_result")
+        last_pol_name = st.session_state.get("last_policy_name")
+
+        if last_pol and last_pol_name == selected_policy_name:
+            is_allowed = last_pol.get("allowed", False)
+
+            if is_allowed:
+                st.success(f"**Policy Decision: ALLOW (Dry-Run)** — {last_pol.get('reason')}")
+            else:
+                st.error(f"**Policy Decision: DENY (Dry-Run)** — {last_pol.get('reason')}")
+
+            # Safeguard checks breakdown
+            checks = last_pol.get("checks", {})
+            if checks:
+                check_cols = st.columns(len(checks))
+                check_labels = {
+                    "name_valid": "Name Syntax",
+                    "state_eligible": "State Eligibility",
+                    "oom_safeguard_satisfied": "OOM Protection",
+                    "cooldown_satisfied": "Cooldown Period",
+                    "within_retry_limit": "Retry Limit",
+                }
+                for col, (chk_key, chk_val) in zip(check_cols, checks.items()):
+                    lbl = check_labels.get(chk_key, chk_key)
+                    icon = "✅ Passed" if chk_val else "❌ Failed"
+                    col.metric(lbl, icon)
+
+            # Details: failed attempts & cooldown remaining
+            detail_col1, detail_col2, detail_col3 = st.columns(3)
+            detail_col1.metric("Recent Failed Attempts", last_pol.get("attempts_in_window", 0))
+            detail_col2.metric(
+                "Cooldown Remaining",
+                f"{last_pol.get('cooldown_remaining_seconds', 0.0):.1f}s",
+            )
+            detail_col3.metric("Execution Mode", "DRY-RUN (Safe)")
+
+            if last_pol.get("log_error"):
+                st.warning(last_pol["log_error"])
+    else:
+        st.info("No containers available to evaluate.")
+
+    # 6. Container Recovery (Manual execution)
     st.markdown("## 🛠️ Container Recovery")
 
     last_recovery = st.session_state.get("last_recovery_result")
@@ -239,23 +335,30 @@ try:
     else:
         st.info("No stopped containers are available for recovery.")
 
-    # Recovery history
+    # 7. Policy Decision History (Dry-Run Audit Trail)
+    st.markdown("## 📋 Policy Decision Audit History (Dry-Run)")
+
+    try:
+        policy_history_events = load_policy_history(limit=20)
+        if policy_history_events:
+            st.dataframe(
+                pd.DataFrame(format_policy_history_rows(policy_history_events)),
+                width="stretch",
+                hide_index=True,
+            )
+        else:
+            st.info("No policy evaluation decisions recorded yet.")
+    except Exception as pol_hist_error:
+        st.warning(f"Unable to load policy audit history: {pol_hist_error}")
+
+    # 8. Recovery Execution History
     st.markdown("## 📜 Recovery History")
 
     try:
         history_events = load_recovery_history(limit=20)
         if history_events:
-            history_rows = [
-                {
-                    "Timestamp (UTC)": event.get("timestamp", "N/A"),
-                    "Container": event.get("container", "N/A"),
-                    "Status": "SUCCESS" if event.get("success") else "FAILED",
-                    "Message": event.get("message", ""),
-                }
-                for event in history_events
-            ]
             st.dataframe(
-                pd.DataFrame(history_rows),
+                pd.DataFrame(format_recovery_history_rows(history_events)),
                 width="stretch",
                 hide_index=True,
             )
@@ -264,7 +367,7 @@ try:
     except Exception as history_error:
         st.warning(f"Unable to load recovery history: {history_error}")
 
-    # Threshold information
+    # 9. Threshold Information
     with st.expander("Monitoring thresholds"):
         st.write("CPU: warning at 70%, critical at 90%.")
         st.write("Memory: warning at 80%, critical at 90%.")
@@ -273,4 +376,3 @@ try:
 except Exception as error:
     st.error("Monitoring could not be completed.")
     st.exception(error)
-
