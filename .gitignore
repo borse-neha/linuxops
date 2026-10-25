@@ -8,9 +8,17 @@ venv/
 
 # Runtime monitoring data
 logs/*.jsonl
+logs/*.log
+logs/*.json
+logs/backups/
+!logs/.gitkeep
 
-# Local environment variables
+# Local environment variables & secrets
 .env
+.env.*
+!.env.example
+!.env.production.example
+.streamlit/secrets.toml
 
 # Backups
 *.bak

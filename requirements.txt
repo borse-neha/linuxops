@@ -1,0 +1,6 @@
+# LinuxOps Core Runtime Dependencies
+# Python requirement: >= 3.10 (Verified on Python 3.14.7 on Fedora Linux 44)
+# Direct runtime packages needed by LinuxOps observability engine and dashboard.
+
+pandas>=2.0.0,<4.0.0
+streamlit>=1.30.0,<2.0.0

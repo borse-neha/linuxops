@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linuxops"
+version = "0.7.0"
+description = "Podman container observability, evidence-based diagnostics, and safe-recovery platform for Linux"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Internal / Pilot"}
+authors = [
+    {name = "LinuxOps Platform Engineering"}
+]
+keywords = ["podman", "observability", "containers", "diagnostics", "linux"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "pandas>=2.0.0,<4.0.0",
+    "streamlit>=1.30.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+linuxops-monitor = "app.monitor:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

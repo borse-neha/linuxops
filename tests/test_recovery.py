@@ -211,7 +211,14 @@ class TestContainerRecovery(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertIn("Permission denied", result["message"])
 
+    @patch("app.recovery.subprocess.run")
+    def test_protected_workload_rejected(self, mock_run):
+        for protected in ["cloudops-floci", "linuxops-recovery-ui-test", "db80c688e14b", "83b65d88a0a9"]:
+            result = restart_container(protected)
+            self.assertFalse(result["success"])
+            self.assertIn("protected workload", result["message"])
+            mock_run.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -1,0 +1,5 @@
+# LinuxOps Development & Test Dependencies
+-r requirements.txt
+
+# Development test runner (optional convenience; test suite natively runs via standard unittest)
+pytest>=8.0.0

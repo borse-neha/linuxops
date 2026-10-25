@@ -1,0 +1,28 @@
+# ==============================================================================
+# LinuxOps Render Blueprint Specification (render.yaml)
+# Production Deployment for Managed PaaS
+# ==============================================================================
+services:
+  - type: web
+    name: linuxops-dashboard
+    env: python
+    region: oregon
+    plan: starter  # Requires persistent connection support for Streamlit WebSockets
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    startCommand: "./scripts/run_production.sh"
+    healthCheckPath: "/_stcore/health"
+    autoDeploy: false
+    envVars:
+      - key: LINUXOPS_AUTH_MODE
+        value: production
+      - key: LINUXOPS_RECOVERY_DISABLED
+        value: "1"
+      - key: PYTHON_VERSION
+        value: "3.11.8"
+      # Secure placeholders - define in Render Dashboard secrets or environment
+      - key: LINUXOPS_ADMIN_USERS
+        sync: false  # Must be configured in Render dashboard (e.g. admin@yourdomain.com)
+      - key: LINUXOPS_AGENT_SECRET
+        sync: false  # Must be configured in Render dashboard (HMAC secret for agents)
+      - key: LINUXOPS_MONITORED_HOSTS
+        sync: false  # Optional list: "node-1:Prod Node 1,node-2:Prod Node 2"

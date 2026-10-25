@@ -1,0 +1,100 @@
+{
+  "manifest_version": "1.0.0",
+  "release_candidate": "LinuxOps v1.0.0-rc1",
+  "generated_at_utc": "2026-10-25T10:51:13.842646+00:00",
+  "platform_environment": {
+    "os": "Linux 6.18.33.2-microsoft-standard-WSL2",
+    "distribution": "Ubuntu 24.04.1 LTS",
+    "python_runtime": "3.12.3",
+    "host_os": "Windows 11"
+  },
+  "git_state": {
+    "head_commit": "3919f4b627c604f8fb354a2881071c9c1ac5da9a",
+    "branch": "master",
+    "working_tree_summary": {
+      "modified_tracked_files_count": 9,
+      "untracked_entries_count": 47,
+      "safety_directive": "Preserve all existing Git changes; no commits or resets allowed"
+    }
+  },
+  "dependency_manifest_hashes": {
+    "requirements.txt": "068f0715b8195e0c2ffc86cf222d7ac9edae7b0ddba92b4c06927a2a1995c5bc",
+    "requirements-lock.txt": "3eb0f42bd868d80810098d26e5e559ce60954234fc0802611153e4beb706dad3",
+    "requirements-dev.txt": "339b0fcc8361d30860084d4ee0ffd31085591eca9cd314187aa1e18266812706",
+    "pyproject.toml": "7a30ea7a05336a42cc763f46a2ef0d876ec9d70a0b6cd86c437f130dc6e22f3f"
+  },
+  "configuration_hashes": {
+    ".env.example": "a170f4741ca32b866cc21517b7be08ae243ec747ddde9850da3c4b72850901c0",
+    ".env.production.example": "c444bb3640969aeb888e6958eb543ab652dc4c1b16fdc0dc471208a03daaef41",
+    ".streamlit/config.toml": "efc42e4d6424895e248c6fbe69ba6d52246b2250bef0246874b8814dbf7d1f3e",
+    "Dockerfile": "60cea4a09190c2c251270cb71fb2986ac71d9e2f05f8193aebbcb6b82d979b61",
+    "Containerfile": "f111f856fddc493e94d8e3bf0cd512ee3c6a0049feea890cef2d724f5df5c924",
+    "Procfile": "be943ddcf4ffb40105dee0e380a36b859bca74cb5fd36713dd6e6e22f9902af7",
+    "render.yaml": "1704c5a464e560d6a12ede88a21b726bbc26524f1f3c2506ce836f25277ce183",
+    "Makefile": "103957762b1b4c9b6db4e4a804f1fc95fbb3573d9f5b3b98c3cba6b9dcf2aab3"
+  },
+  "systemd_unit_hashes": {
+    "linuxops-dashboard.service": "9e52ef94f8a3b40d2b72876fd5e0f9efa79d62a3c48c93ec7b28a185f9e8b104",
+    "linuxops-bridge.service": "b60ea5e05ea12dbca20c76fb0fd73ab056e109d92ba8bae010049d6df87c4117"
+  },
+  "backup_verification": {
+    "phase16_baseline_backup": {
+      "backup_id": "linuxops_backup_20261025_104219_0885fe",
+      "archive_path": "/home/neha_borse/linuxops/logs/backups/linuxops_backup_20261025_104219_0885fe.tar.gz",
+      "sha256": "04fa802ee8ce1f992e0f9491de4e5ef2da8f75ba013c311d3a26722284614c17",
+      "status": "VERIFIED_VALID",
+      "file_count": 105
+    },
+    "phase17_release_candidate_backup": {
+      "backup_id": "linuxops_backup_20261025_104930_c00365",
+      "archive_path": "/home/neha_borse/linuxops_rc_backups/linuxops_backup_20261025_104930_c00365.tar.gz",
+      "sha256": "6a1209148d200db0bf758b08b986ec68bae176dda2c4320ddc1bf46b41f6eaba",
+      "status": "VERIFIED_VALID",
+      "file_count": 106
+    }
+  },
+  "test_evidence": {
+    "total_tests": 565,
+    "passed_tests": 565,
+    "failed_tests": 0,
+    "subtests_passed": 9,
+    "staging_preflight": {
+      "verdict": "READY",
+      "checks_evaluated": 10,
+      "passed": 9,
+      "warnings": 1,
+      "warning_detail": "Port 8501 occupied by active dashboard instance",
+      "failed": 0
+    },
+    "health_endpoints": {
+      "windows_localhost": "HTTP 200 OK (http://localhost:8501/_stcore/health)",
+      "wsl_loopback": "HTTP 200 OK (http://127.0.0.1:8501/_stcore/health)"
+    },
+    "secret_scanning": "PASSED (0 violations detected)"
+  },
+  "mandatory_security_invariants": {
+    "recovery_kill_switch": "LINUXOPS_RECOVERY_DISABLED=1 (Permanently enforced)",
+    "container_runtime": "Zero Podman socket access; zero test containers executed",
+    "protected_workloads": "cloudops-floci, FedoraLinux-44, and sentinel data untouched",
+    "isolation_boundaries": "All restore operations validated in disposable empty sandbox"
+  },
+  "verification_separation": {
+    "automated_verified": [
+      "Full test battery (565 tests passing)",
+      "Preflight staging readiness (READY)",
+      "Live dashboard HTTP 200 OK health checks",
+      "Reversible dashboard failure-injection & 4.1s recovery",
+      "Secret exclusion scanning & .env rejection",
+      "Tamper-evident backup creation & SHA-256 verification",
+      "Isolated sandbox restoration with zero file diffs",
+      "Destination security barriers (live root, protected paths, non-empty targets)",
+      "Path traversal and decompression safety"
+    ],
+    "operator_only_required": [
+      "Physical Windows reboot verification (Phase 15 Checklist Part A)",
+      "Physical laptop sleep/resume verification (Phase 15 Checklist Part B)"
+    ]
+  },
+  "release_verdict": "PASS WITH LIMITATIONS",
+  "verdict_rationale": "All automated criteria certified with zero regressions. Physical host power-cycle verification pending human operator execution."
+}

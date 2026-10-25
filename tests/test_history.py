@@ -9,10 +9,15 @@ from pathlib import Path
 from app.history import (
     DEFAULT_HISTORY_PATH,
     DEFAULT_POLICY_HISTORY_PATH,
+    format_incident_history_rows,
+    inspect_audit_log_integrity,
+    load_incident_history,
     load_policy_history,
     load_recovery_history,
+    record_incident_resolution,
     record_policy_decision,
     record_recovery_event,
+    rotate_audit_log,
 )
 from app.policy import evaluate_recovery_policy
 
@@ -342,6 +347,126 @@ class TestRecoveryHistory(unittest.TestCase):
         self.assertTrue(result["checks"]["cooldown_satisfied"])
         self.assertTrue(result["checks"]["within_retry_limit"])
         self.assertEqual(result["attempts_in_window"], 0)
+
+    def test_load_incident_history_and_formatting(self):
+        incidents_file = Path(self.temp_dir.name) / "incidents.jsonl"
+        # 1. Non-existent file returns []
+        self.assertEqual(load_incident_history(incidents_path=incidents_file), [])
+
+        # 2. Write 2 sample incident resolution events
+        ev1 = {
+            "timestamp": "2026-10-21T10:00:00Z",
+            "incident_id": "INC-001",
+            "container_name": "worker-1",
+            "rule_id": "EXITED_UNEXPECTEDLY",
+            "resolution_status": "RESOLVED",
+            "message": "Container started and verified healthy.",
+        }
+        ev2 = {
+            "timestamp": "2026-10-21T10:05:00Z",
+            "incident_id": "INC-002",
+            "container_name": "worker-2",
+            "rule_id": "OOM_KILLED",
+            "resolution_status": "ESCALATED",
+            "message": "Human review required.",
+        }
+        with open(incidents_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(ev1) + "\n")
+            f.write("corrupt line\n")
+            f.write(json.dumps(ev2) + "\n")
+
+        loaded = load_incident_history(limit=10, incidents_path=incidents_file)
+        self.assertEqual(len(loaded), 2)
+        # Newest first
+        self.assertEqual(loaded[0]["incident_id"], "INC-002")
+        self.assertEqual(loaded[1]["incident_id"], "INC-001")
+
+        # Format rows
+        rows = format_incident_history_rows(loaded)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["Incident ID"], "INC-002")
+        self.assertEqual(rows[0]["Status"], "ESCALATED")
+        self.assertEqual(rows[1]["Incident ID"], "INC-001")
+        self.assertEqual(rows[1]["Status"], "RESOLVED")
+
+    def test_record_incident_resolution_persists(self):
+        incidents_file = Path(self.temp_dir.name) / "test_incidents.jsonl"
+        inc = {
+            "incident_id": "INC-999",
+            "container_name": "worker-svc",
+            "rule_id": "EXITED_UNEXPECTEDLY",
+        }
+        res = record_incident_resolution(inc, "RESOLVED", "Container successfully recovered and verified.", incidents_path=incidents_file)
+        self.assertEqual(res["incident_id"], "INC-999")
+        self.assertEqual(res["resolution_status"], "RESOLVED")
+        self.assertTrue(incidents_file.exists())
+
+        loaded = load_incident_history(incidents_path=incidents_file)
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["incident_id"], "INC-999")
+        self.assertEqual(loaded[0]["resolution_status"], "RESOLVED")
+
+    def test_inspect_audit_log_integrity(self):
+        log_file = Path(self.temp_dir.name) / "audit_integrity_test.jsonl"
+        # 1. Non-existent file
+        res_non = inspect_audit_log_integrity(log_file)
+        self.assertFalse(res_non["exists"])
+        self.assertTrue(res_non["is_healthy"])
+
+        # 2. Populated file with 2 valid lines, 1 empty line, 1 corrupted line
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"event": 1}) + "\n")
+            f.write("\n")
+            f.write("corrupted json {not valid\n")
+            f.write(json.dumps({"event": 2}) + "\n")
+
+        res = inspect_audit_log_integrity(log_file)
+        self.assertTrue(res["exists"])
+        self.assertEqual(res["total_lines"], 4)
+        self.assertEqual(res["valid_records"], 2)
+        self.assertEqual(res["corrupted_records"], 1)
+        self.assertEqual(res["empty_lines"], 1)
+        self.assertFalse(res["is_healthy"])
+
+    def test_rotate_audit_log(self):
+        rot_file = Path(self.temp_dir.name) / "rotate_test.jsonl"
+        with open(rot_file, "w", encoding="utf-8") as f:
+            f.write("A" * 500)
+
+        # 1. Below threshold does not rotate
+        res_no = rotate_audit_log(rot_file, max_bytes=1000)
+        self.assertFalse(res_no["rotated"])
+        self.assertTrue(rot_file.exists())
+
+        # 2. Above threshold rotates to .1
+        res_yes = rotate_audit_log(rot_file, max_bytes=200)
+        self.assertTrue(res_yes["rotated"])
+        archived = Path(self.temp_dir.name) / "rotate_test.jsonl.1"
+        self.assertTrue(archived.exists())
+        self.assertEqual(archived.stat().st_size, 500)
+        # Fresh file exists
+        self.assertTrue(rot_file.exists())
+        self.assertEqual(rot_file.stat().st_size, 0)
+
+    def test_malformed_and_partially_written_jsonl(self):
+        """Partially written lines do not discard valid records."""
+        rec_file = Path(self.temp_dir.name) / "partial_test.jsonl"
+        valid_ev = {
+            "timestamp": "2026-10-21T12:00:00Z",
+            "action": "start_container",
+            "container": "app-x",
+            "success": True,
+            "message": "ok",
+        }
+        with open(rec_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(valid_ev) + "\n")
+            f.write('{"timestamp": "2026-10-21T12:01:00Z", "action": "start_container", "container": "app-truncated\n')
+            f.write("\n")
+            f.write('{"incomplete": true')
+
+        events = load_recovery_history(history_path=rec_file)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["container"], "app-x")
 
 
 if __name__ == "__main__":

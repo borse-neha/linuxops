@@ -1,0 +1,13 @@
+# Streamlit Production & Staging Hardening Configuration
+# Enforces localhost-only binding by default. Never expose unauthenticated dashboards on public interfaces.
+
+[server]
+address = "127.0.0.1"
+port = 8501
+headless = true
+enableCORS = true
+enableXsrfProtection = true
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false

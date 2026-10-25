@@ -1,4 +1,5 @@
 
+import json
 import re
 import subprocess
 
@@ -30,8 +31,10 @@ def validate_container_name(container_name):
     return True, name
 
 
-def restart_container(container_name):
+def restart_container(container_name, runner=None):
     """Safely start a stopped container and verify its state."""
+    if runner is None:
+        runner = subprocess.run
 
     is_valid, validation_msg = validate_container_name(container_name)
     if not is_valid:
@@ -42,10 +45,20 @@ def restart_container(container_name):
 
     name = validation_msg
 
+    # Defense-in-depth: Immediately block protected workloads by name or ID prefix
+    clean_target = name.strip().lstrip("/")
+    if clean_target in {"cloudops-floci", "linuxops-recovery-ui-test"} or any(
+        clean_target.startswith(p) for p in {"510d4cfc0d22", "db80c688e14b", "83b65d88a0a9"}
+    ):
+        return {
+            "success": False,
+            "message": f"Recovery rejected: protected workload '{name}' must never be modified.",
+        }
+
     try:
         # Step 1: Inspect the container before changing anything.
         try:
-            inspect_result = subprocess.run(
+            inspect_result = runner(
                 [
                     "podman",
                     "inspect",
@@ -95,7 +108,7 @@ def restart_container(container_name):
 
         # Step 2: Start the stopped container.
         try:
-            start_result = subprocess.run(
+            start_result = runner(
                 ["podman", "start", name],
                 capture_output=True,
                 text=True,
@@ -119,7 +132,7 @@ def restart_container(container_name):
 
         # Step 3: Verify the container's current state.
         try:
-            verify_result = subprocess.run(
+            verify_result = runner(
                 [
                     "podman",
                     "inspect",
